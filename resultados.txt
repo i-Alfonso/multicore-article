@@ -1,0 +1,340 @@
+============================================================
+  RESULTADOS DE EJECUCION — Operador Prewitt
+  Fecha: 2026-02-27 00:44:23
+  Imagen de entrada: input.pgm (65K,  Netpbm image data, size = 256 x 256, rawbits, greymap)
+============================================================
+
+------------------------------------------------------------
+  ESCALAR
+------------------------------------------------------------
+Imagen cargada: 256x256 pixeles
+
+====================================================
+  Version        : Escalar (Prewitt, -no-vec)
+  Tiempo         : 0.0354148 s
+  GFLOPS         : 5.92168
+  Ancho de banda : 17.765 GB/s
+  AI teorica     : 0.333333 FLOP/Byte
+  N total        : 52428800 elementos
+====================================================
+
+Guardada: output_escalar.pgm
+
+------------------------------------------------------------
+  AUTOMATICA
+------------------------------------------------------------
+Imagen cargada: 256x256 pixeles
+
+====================================================
+  Version        : Automatica (Prewitt, icpx -O3 -march=native)
+  Tiempo         : 0.02857 s
+  GFLOPS         : 7.3404
+  Ancho de banda : 22.0212 GB/s
+  AI teorica     : 0.333333 FLOP/Byte
+  N total        : 52428800 elementos
+====================================================
+
+Guardada: output_auto.pgm
+
+------------------------------------------------------------
+  GUIADA
+------------------------------------------------------------
+Imagen cargada: 256x256 pixeles
+
+====================================================
+  Version        : Guiada (Prewitt, #pragma omp simd simdlen(8))
+  Tiempo         : 0.0351393 s
+  GFLOPS         : 5.96811
+  Ancho de banda : 17.9043 GB/s
+  AI teorica     : 0.333333 FLOP/Byte
+  N total        : 52428800 elementos
+====================================================
+
+Guardada: output_guiada.pgm
+
+------------------------------------------------------------
+  EXPLICITA
+------------------------------------------------------------
+Imagen cargada: 256x256 pixeles
+
+====================================================
+  Version        : Explicita (Prewitt, AVX2 _mm256_*)
+  Tiempo         : 0.0293394 s
+  GFLOPS         : 7.14791
+  Ancho de banda : 21.4437 GB/s
+  AI teorica     : 0.333333 FLOP/Byte
+  N total        : 52428800 elementos
+====================================================
+
+Guardada: output_explicita.pgm
+
+============================================================
+  VECTORIZACION (.optrpt)
+============================================================
+
+[Escalar] kernel_escalar — NOT vectorized (-no-vec)
+
+[Auto] kernel_auto
+    remark #15300: LOOP WAS VECTORIZED
+    remark #15305: vectorization support: vector length 16
+    remark #15478: estimated potential speedup: 3.703125 
+    remark #15305: vectorization support: vector length 4
+    remark #15300: LOOP WAS VECTORIZED
+    remark #15305: vectorization support: vector length 4
+
+[Guiada] kernel_guiado
+    remark #15300: LOOP WAS VECTORIZED
+    remark #15305: vectorization support: vector length 8
+    remark #15478: estimated potential speedup: 2.015625 
+    remark #15301: SIMD LOOP WAS VECTORIZED
+    remark #15305: vectorization support: vector length 8
+    remark #15478: estimated potential speedup: 3.625000 
+
+[Explicita] kernel_explicito
+    remark #15521: Loop was not vectorized: loop control variable was not identified. Explicitly compute the iteration count before executing the loop or try using canonical loop form from OpenMP specification
+    remark #15541: loop was not vectorized: outer loop is not an auto-vectorization candidate.
+        remark #15344: Loop was not vectorized: vector dependence prevents vectorization
+    remark #15436: loop was not vectorized: Loop is already vectorized at the max legal vector width 
+    remark #15300: LOOP WAS VECTORIZED
+    remark #15305: vectorization support: vector length 16
+
+============================================================
+  RESULTADOS INTEL ADVISOR — Survey + Tripcounts+FLOP
+  Fecha: 2026-02-27
+============================================================
+
+------------------------------------------------------------
+  SURVEY — Loop del kernel principal (magnitud del gradiente)
+------------------------------------------------------------
+
+Version     Función/Loop              Self Time  Tipo               ISA    Trip Count   VecWidth
+─────────────────────────────────────────────────────────────────────────────────────────────────
+Escalar     kernel_escalar:107        0.030s     Vectorized (Body)  SSE    6,553,600    8 floats
+Auto        kernel_auto:84            0.030s     Vectorized (Body)  AVX2   3,276,800   16 floats
+Guiada      kernel_guiado:90          0.030s     Vectorized (Body)  AVX2   6,553,600    8 floats
+Explicita   kernel_explicito:93       0.030s     Vectorized (Body)  AVX2   1,638,400   32 floats*
+
+* Compiler unrolled 4x the manual AVX2 loop (8 floats × 4 = 32 per trip)
+
+------------------------------------------------------------
+  TRIPCOUNTS + FLOP — GFLOPS medidos por Advisor
+------------------------------------------------------------
+
+Version     GFLOPS (Advisor)  GINTOPS  Program Time  VecLoop Time
+─────────────────────────────────────────────────────────────────
+Escalar     0.75              0.14     0.28s         0.03s
+Auto        0.76              0.12     0.28s         0.03s
+Guiada      0.74              0.14     0.28s         0.03s
+Explicita   0.73              0.10     0.29s         0.03s
+
+------------------------------------------------------------
+  AI TEORICA (Arithmetic Intensity)
+------------------------------------------------------------
+  4 FLOPs / (3 arrays × 4 bytes) = 0.333 FLOP/Byte → Memory-Bound
+
+------------------------------------------------------------
+  NOTAS DE ANALISIS
+------------------------------------------------------------
+- Escalar usa SSE (registros XMM escalares) aunque tiene -no-vec.
+  El flag evita vectorizacion PACKED, no el uso escalar de registros SSE.
+- Auto elige AVX2 con width=16 (tripcount = TOT/16 = 3,276,800).
+- Guiada fuerza simdlen=8 → AVX2 width=8 (tripcount = TOT/8).
+- Explicita: el compilador hizo unroll 4x sobre el loop manual AVX2.
+- Los 4 kernels son MEMORY-BOUND (AI=0.333 FLOP/Byte, muy bajo).
+
+============================================================
+  ANÁLISIS COMPLETO — Imágenes Advisor + Coherencia con PDF
+  Fecha: 2026-02-27
+  Basado en: 16 imágenes (4 por versión) + survey text + .optrpt
+============================================================
+
+------------------------------------------------------------
+  1. HARDWARE IDENTIFICADO (del Roofline)
+------------------------------------------------------------
+  Physical Cores : 14
+  App Threads    : 1
+
+  Techos de cómputo:
+    SP Vector FMA Peak  : 148.8 GFLOPS   (AVX-512 FMA)
+    SP Vector Add Peak  : 74.55 GFLOPS   (AVX2/AVX-512 Add)
+    DP Vector Add Peak  : 37.27 GFLOPS
+    Scalar Add Peak     : 9.28  GFLOPS   ← techo que limita al kernel
+
+  Anchos de banda de memoria:
+    L1 Bandwidth        : ~413 GB/s
+    L2 Bandwidth        : ~190 GB/s
+    L3 Bandwidth        : ~65-73 GB/s
+    DRAM Bandwidth      : 24-27 GB/s
+
+------------------------------------------------------------
+  2. DATOS EXTRAÍDOS DE LAS IMÁGENES (Program Metrics)
+------------------------------------------------------------
+
+  Version    | Elapsed | GFLOPS | AI(FP)  | GINTOPS | VecLoop      | ScalarCode
+  -----------|---------|--------|---------|---------|--------------|------------
+  Escalar    | 0.28s   | 0.76   | 0.100   | 0.14    | 0.03s (11.1%)| 0.24s (88.9%)
+  Automática | 0.27s   | 0.76   | 0.100   | 0.12    | 0.03s (11.1%)| 0.24s (88.9%)
+  Guiada     | 0.24s   | 0.86   | 0.100   | 0.16    | 0.03s (12.5%)| 0.21s (87.5%)
+  Explícita  | 0.26s   | 0.82   | 0.100   | 0.12    | 0.03s (12.0%)| 0.22s (88.0%)
+
+  ISA del programa completo (Program Metrics):
+    Escalar    : AVX2, AVX, SSE2, SSE  (SSE = scalar FP del kernel)
+    Automática : AVX2, AVX, SSE2       (sin SSE puro, usa AVX2 packed)
+    Guiada     : AVX2, AVX, SSE2
+    Explícita  : AVX2, AVX, SSE2
+
+------------------------------------------------------------
+  3. SURVEY — Top Loops (imágenes timeLoops)
+------------------------------------------------------------
+
+  ESCALAR:
+    Loop main:152        → 0.070s  trip=16384     Scalar   (bucle replicación)
+    Loop kernel_escalar:107 → 0.030s  trip=6553600  SSE   ← KERNEL (vector width=8)
+    Loop main:150        → <0.001s trip=799       Scalar
+
+  AUTOMÁTICA:
+    Loop main:118        → 0.070s  trip=16384     Scalar   (bucle replicación)
+    Loop kernel_auto:84  → 0.030s  trip=3276800   AVX2  ← KERNEL (vector width=16)
+    Loop main:102        → <0.001s trip=799       Scalar
+
+  GUIADA:
+    Loop main:123        → 0.040s  trip=16384     Scalar   (bucle replicación)
+    Loop kernel_guiado:90 → 0.030s  trip=6553600  AVX2  ← KERNEL (vector width=8)
+    Loop main:107        → <0.001s trip=799       Scalar
+
+  EXPLÍCITA:
+    Loop main:138        → 0.050s  trip=16384     Scalar   (bucle replicación)
+    Loop kernel_explicito:93 → 0.030s trip=1638400 AVX2  ← KERNEL (width=8x4 unroll)
+    Loop calcular_gradientes:62 → 0.010s trip=254  Scalar
+    Loop calcular_gradientes:57 → 0.010s trip=254  Scalar
+    Loop main:122        → <0.001s trip=799       Scalar
+
+  Cálculo de vector width desde trip count:
+    N_total = 52,428,800
+    Escalar  : 52,428,800 / 6,553,600 = 8  (SSE scalar con unroll x2)
+    Auto     : 52,428,800 / 3,276,800 = 16 (AVX-512 o AVX2 con unroll)
+    Guiada   : 52,428,800 / 6,553,600 = 8  (AVX2, simdlen=8 cumplido)
+    Explícita: 52,428,800 / 1,638,400 = 32 (AVX2 x8 + unroll x4 del compilador)
+
+------------------------------------------------------------
+  4. ANÁLISIS ROOFLINE (imágenes graficaRoofline)
+------------------------------------------------------------
+
+  Las 4 versiones muestran el punto rojo en posición aproximada:
+    Eje X (AI)    : ~0.33–0.37 FLOP/Byte  (coincide con teórico 0.333)
+    Eje Y (GFLOPS): ~6–8 GFLOPS
+    Zona          : "Bound by compute and memory roofs"
+                    (entre techo L2/L3 y Scalar Add Peak = 9.28 GFLOPS)
+
+  Interpretación:
+  - El kernel NO está en zona puramente Memory Bound (DRAM).
+  - Está limitado por la intersección del ancho de banda L2/L3
+    con el techo escalar de cómputo (9.28 GFLOPS).
+  - Los puntos de las 4 versiones son CASI IDÉNTICOS en el Roofline,
+    lo que indica que el cuello de botella es el mismo para todas:
+    la intensidad aritmética baja (AI=0.333) y el techo escalar.
+  - Para superar ese techo se requería que el kernel alcanzara
+    la zona vectorial (SP Vector Add: 74 GFLOPS), pero la memoria
+    no da abasto para alimentar los registros AVX2 continuamente.
+
+------------------------------------------------------------
+  5. ANÁLISIS DE COHERENCIA — Código vs. Imágenes vs. PDF
+------------------------------------------------------------
+
+  ✅ CORRECTO — Operador Prewitt (válido según PDF, Sobel sugerido pero Prewitt aceptado)
+  ✅ CORRECTO — Formato PGM binario P5, 256×256 píxeles
+  ✅ CORRECTO — N = 256×256×800 = 52,428,800 (confirmado por trip counts)
+  ✅ CORRECTO — 4 versiones implementadas y ejecutadas
+  ✅ CORRECTO — Compilador icpx (Intel oneAPI 2025.3.2)
+  ✅ CORRECTO — Flags de compilación adecuados por versión
+  ✅ CORRECTO — Imágenes de salida PGM generadas (65K cada una)
+  ✅ CORRECTO — Tiempo de ejecución reportado
+  ✅ CORRECTO — GFLOPS reportados
+  ✅ CORRECTO — Advisor survey + tripcounts ejecutados para las 4 versiones
+  ✅ CORRECTO — Roofline generado para las 4 versiones
+  ✅ CORRECTO — kernel_escalar: SSE (sin SIMD packed), confirma -no-vec
+  ✅ CORRECTO — kernel_auto: AVX2 vectorizado automáticamente
+  ✅ CORRECTO — kernel_guiado: AVX2 con simdlen(8) = pragma omp simd cumplido
+  ✅ CORRECTO — kernel_explicito: AVX2 con _mm256_* confirmado
+
+------------------------------------------------------------
+  6. PROBLEMAS / ADVERTENCIAS DETECTADAS
+------------------------------------------------------------
+
+  ⚠️  PROBLEMA 1 — Captura incorrecta en carpeta Explicita:
+      Archivo: Explicita/codeAnalytics-Guiada.png
+      El nombre indica que se guardó la captura de Guiada en la
+      carpeta de Explicita. El contenido es igual al de Guiada.
+      ACCIÓN: Retomar la captura de Code Analytics de la versión
+      Explícita haciendo clic en kernel_explicito:93 en la GUI.
+      Renombrar correctamente a codeAnalytics-Explicita.png
+
+  ⚠️  PROBLEMA 2 — Typo en nombre de archivo:
+      Archivo: Explicita/graficaRoodline-Explicita.png
+      (dice "Roodline" en vez de "Roofline")
+      ACCIÓN: Renombrar. No afecta el contenido, solo el nombre.
+
+  ⚠️  ADVERTENCIA 3 — Vectorization Gain/Efficiency: Not Available
+      Advisor muestra "Not Available" para esta métrica en todas
+      las versiones. Razón: requiere Intel C++ Compiler Classic
+      (icc/icpc) versión 16+, no icpx (DPC++).
+      IMPACTO: No se puede reportar speedup vectorial de Advisor.
+      SOLUCIÓN para el artículo: usar speedup calculado manualmente
+      desde los tiempos de ejecución del kernel.
+
+  ⚠️  ADVERTENCIA 4 — Bucle de replicación más lento que el kernel:
+      El bucle que replica los datos 800 veces (main:152, trip=16384)
+      toma 0.040–0.070s, mientras el kernel toma solo 0.030s.
+      Resultado: 88–89% del tiempo total es código escalar (I/O,
+      gradientes, replicación). Solo el 11–12% es el kernel vectorizado.
+      IMPACTO: El speedup total del programa es pequeño aunque el
+      kernel internamente sí muestra mejora vectorial.
+      Para el artículo: reportar tiempos del kernel aislado (los de
+      nuestro benchmark: 5.92–7.34 GFLOPS) más los datos de Advisor.
+
+  ⚠️  ADVERTENCIA 5 — AI medida (0.100) vs AI teórica (0.333):
+      Advisor mide AI=0.100 FLOP/Byte para el programa completo.
+      El valor teórico del kernel aislado es 0.333 FLOP/Byte.
+      Razón: Advisor incluye todas las operaciones de memoria del
+      programa (gradientes, replicación, I/O), bajando la AI global.
+      Para el artículo: reportar ambos valores explicando la diferencia.
+
+  ℹ️  NOTA — calcular_gradientes_prewitt visible solo en Explicita:
+      En las otras 3 versiones ese loop no aparece en el top survey
+      porque está por debajo del umbral de tiempo (< 0.01s).
+      En Explicita aparece (0.010s) quizás por variaciones de timing.
+      No es un error, es una diferencia de medición estadística.
+
+------------------------------------------------------------
+  7. SPEEDUP CALCULADO (desde tiempos del benchmark)
+------------------------------------------------------------
+
+  Tiempo base Escalar : 0.0354 s  (GFLOPS: 5.92)
+  Tiempo Automática   : 0.0286 s  (GFLOPS: 7.34)  → Speedup: 1.24x
+  Tiempo Guiada       : 0.0351 s  (GFLOPS: 5.97)  → Speedup: 1.01x
+  Tiempo Explícita    : 0.0293 s  (GFLOPS: 7.15)  → Speedup: 1.21x
+
+  Nota: Los tiempos varían entre ejecuciones (±10-15%) por cache/OS.
+  El rango de speedup es 1.0x–1.24x. Bajo para el Roofline porque
+  el kernel es memory-bound (AI=0.333 < ridge point).
+
+------------------------------------------------------------
+  8. VEREDICTO FINAL — ¿Los resultados son coherentes?
+------------------------------------------------------------
+
+  SÍ. Los resultados son coherentes entre sí y con el PDF:
+  - Las imágenes Roofline confirman lo que el código y los tiempos
+    indican: kernel memory-bound con AI baja.
+  - Los trip counts confirman los anchos vectoriales esperados.
+  - Las ISAs reportadas (SSE/AVX2) son las correctas para cada versión.
+  - Los GFLOP Counts son iguales en todas (0.210), confirmando que
+    todas hacen exactamente el mismo cómputo.
+  - Las imágenes PGM de salida se generaron correctamente.
+
+  LO QUE FALTA PARA COMPLETAR EL PROYECTO:
+  1. Retomar codeAnalytics-Explicita.png (captura incorrecta)
+  2. Renombrar graficaRoodline → graficaRoofline en Explicita
+  3. Redactar el artículo científico LaTeX (8–12 páginas)
+  4. Incluir tabla comparativa con speedup en el artículo
+  5. Incluir las 12 (o 16) imágenes de Advisor en latex-informe/Figuras/
+

@@ -1,0 +1,60 @@
+% =========================================================
+%  SECCIÓN I — INTRODUCCIÓN
+% =========================================================
+\section{Introducci\'on}
+
+\PARstart{L}{a} detecci\'on de bordes es una de las operaciones
+fundamentales en el procesamiento digital de im\'agenes.
+Su objetivo consiste en identificar los cambios abruptos en la
+intensidad luminosa de los p\'ixeles de una imagen, los cuales
+generalmente corresponden a las fronteras entre objetos, texturas
+o regiones de inter\'es~\cite{gonzalez2008}.
+Esta operaci\'on es el primer paso en cadenas de an\'alisis m\'as
+complejas, como la segmentaci\'on sem\'antica, el reconocimiento
+de objetos o la reconstrucci\'on tridimensional en aplicaciones
+de visi\'on artificial, medicina, rob\'otica y teledetección
+satelital~\cite{canny1986}.
+
+El rendimiento de estas operaciones se vuelve cr\'itico cuando
+se procesan grandes vol\'umenes de informaci\'on, como video en
+tiempo real (30--60 cuadros por segundo), im\'agenes m\'edicas de
+alta resoluci\'on (tomograf\'ia, resonancia magn\'etica) o flujos
+de datos provenientes de sensores en sistemas embebidos.
+Los procesadores modernos incorporan unidades de ejecuci\'on
+vectorial (SIMD, \textit{Single Instruction, Multiple Data})
+capaces de procesar m\'ultiples datos en paralelo dentro de un
+\'unico n\'ucleo de c\'omputo.
+En la arquitectura x86-64, la extensi\'on AVX2 (\textit{Advanced
+Vector Extensions 2}) permite operar con registros YMM de 256~bits,
+procesando hasta ocho valores de punto flotante simple
+(32~bits) en una sola instrucci\'on~\cite{intel_intrinsics}.
+
+Sin embargo, explotar correctamente la vectorizaci\'on SIMD no es
+trivial.
+El compilador puede vectorizar autom\'aticamente cuando detecta
+patrones seguros, pero en ocasiones requiere ayuda mediante pragmas
+o directivas.
+Para m\'axima eficiencia, el programador puede emplear intr\'insecos
+AVX2 directamente, aunque esto eleva la complejidad del c\'odigo.
+Independientemente de la estrategia de vectorizaci\'on adoptada,
+el rendimiento final puede estar limitado por el ancho de banda
+de memoria del sistema, un fen\'omeno conocido como
+\textit{memory-bound}~\cite{williams2009}.
+
+El presente trabajo analiza estas cuatro estrategias aplicadas
+al kernel num\'erico del operador Prewitt~\cite{prewitt1970},
+utilizando Intel Advisor como herramienta de perfilado para
+obtener datos objetivos sobre intensidad aritm\'etica, modelo
+Roofline y comportamiento de los bucles vectorizados.
+La hip\'otesis de trabajo es que la intensidad aritm\'etica del
+kernel ($\mathcal{I} \approx 0.333$ FLOP/Byte) situar\'a todas
+las versiones en la zona de memoria limitada del modelo Roofline,
+independientemente del nivel de vectorizaci\'on aplicado.
+
+El resto del art\'iculo est\'a organizado de la siguiente manera:
+la Secci\'on~II presenta el marco te\'orico sobre el operador
+Prewitt, vectorizaci\'on SIMD e Intel Advisor;
+la Secci\'on~III describe la metodolog\'ia experimental;
+la Secci\'on~IV presenta los resultados obtenidos;
+la Secci\'on~V discute e interpreta los datos;
+y la Secci\'on~VI expone las conclusiones del trabajo.

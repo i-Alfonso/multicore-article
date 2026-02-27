@@ -1,0 +1,314 @@
+% =========================================================
+%  SECCIÓN IV — RESULTADOS
+% =========================================================
+\section{Resultados}
+
+\subsection{Rendimiento del Kernel}
+
+La Tabla~\ref{tab:rendimiento} resume los resultados cuantitativos
+obtenidos en la medici\'on directa del tiempo de ejecuci\'on del
+kernel para las cuatro versiones.
+Los tiempos se midieron desde el propio programa C++ usando
+\texttt{std::chrono::high\_resolution\_clock} sobre las
+$N_{\text{tot}} = 52{,}428{,}800$ operaciones.
+El rendimiento en GFLOPS se calcula como
+$4 \times N_{\text{tot}} / t_{\text{kernel}}$ y el ancho de
+banda utilizado como $3 \times 4 \times N_{\text{tot}} /
+t_{\text{kernel}}$.
+
+\begin{table}[htb]
+\centering
+\caption{Rendimiento de las cuatro versiones del kernel Prewitt.}
+\label{tab:rendimiento}
+\footnotesize
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Versi\'on} & \textbf{Tiempo (s)} & \textbf{GFLOPS} &
+\textbf{BW (GB/s)} & \textbf{Speedup} \\
+\midrule
+Escalar     & 0.0354 & 5.92 & 17.76 & $1.00\times$ \\
+Autom\'atica & 0.0286 & 7.34 & 22.02 & $\mathbf{1.24\times}$ \\
+Guiada      & 0.0351 & 5.97 & 17.90 & $1.01\times$ \\
+Expl\'icita  & 0.0293 & 7.15 & 21.44 & $1.21\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+El speedup m\'aximo observado es de $1.24\times$ para la
+vectorizaci\'on autom\'atica, seguido de $1.21\times$ para la
+expl\'icita.
+La versi\'on guiada ofrece pr\'acticamente el mismo rendimiento
+que la escalar ($1.01\times$), a pesar de estar vectorizada con
+AVX2.
+Esto anticipa el comportamiento \textit{memory-bound} que se
+confirmar\'a en el an\'alisis Roofline.
+
+\subsection{An\'alisis Survey — Bucles Vectorizados}
+
+Las Figuras~\ref{fig:loops-escalar} a~\ref{fig:loops-explicita}
+muestran la lista de bucles identificados por Intel Advisor
+para cada versi\'on, con sus tiempos de ejecuci\'on y tipo
+de vectorizaci\'on detectado.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{timeLoops-Escalar}
+\end{center}
+\caption{Survey de bucles --- versi\'on Escalar. El kernel
+(\texttt{kernel\_escalar:107}) reporta tipo \textit{Scalar}
+con ISA SSE (uso escalar de registros XMM, sin SIMD empaquetado),
+conforme al flag \texttt{-no-vec}. Trip count: 6{,}553{,}600.}
+\label{fig:loops-escalar}
+\end{figure}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{timeLoops-Auto}
+\end{center}
+\caption{Survey de bucles --- versi\'on Autom\'atica. El kernel
+(\texttt{kernel\_auto:84}) se marca como \textit{Vectorized (Body)}
+con ISA AVX2 y trip count de 3{,}276{,}800, lo que corresponde
+a un ancho vectorial de $52{,}428{,}800 / 3{,}276{,}800 = 16$
+floats por iteraci\'on.}
+\label{fig:loops-auto}
+\end{figure}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{timeLoops-Guiada}
+\end{center}
+\caption{Survey de bucles --- versi\'on Guiada. El kernel
+(\texttt{kernel\_guiado:90}) aparece como \textit{Vectorized (Body)}
+con ISA AVX2 y trip count de 6{,}553{,}600, correspondiente a un
+ancho vectorial de~8 floats, exactamente el valor especificado
+con \texttt{simdlen(8)}.}
+\label{fig:loops-guiada}
+\end{figure}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{timeLoops-Explicita}
+\end{center}
+\caption{Survey de bucles --- versi\'on Expl\'icita. El kernel
+(\texttt{kernel\_explicito:93}) se reporta como \textit{Vectorized (Body)}
+con ISA AVX2 y trip count de 1{,}638{,}400, lo que implica
+un ancho efectivo de $52{,}428{,}800 / 1{,}638{,}400 = 32$
+floats: el compilador aplic\'o adicionalmente un desenrollado
+(\textit{unroll}) de $4\times$ sobre el bucle AVX2 escrito a mano.}
+\label{fig:loops-explicita}
+\end{figure}
+
+La Tabla~\ref{tab:survey} resume los datos del Survey para los
+kernels principales.
+
+\begin{table}[htb]
+\centering
+\caption{Datos del Survey de Intel Advisor para el kernel Prewitt.}
+\label{tab:survey}
+\footnotesize
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Versi\'on} & \textbf{Tipo} & \textbf{ISA} &
+\textbf{Trip count} & \textbf{Ancho vec.} \\
+\midrule
+Escalar     & Scalar           & SSE  & 6{,}553{,}600 & 1  \\
+Autom\'atica & Vectorized (Body)& AVX2 & 3{,}276{,}800 & 16 \\
+Guiada      & Vectorized (Body)& AVX2 & 6{,}553{,}600 &  8 \\
+Expl\'icita  & Vectorized (Body)& AVX2 & 1{,}638{,}400 & 32$^*$ \\
+\bottomrule
+\multicolumn{5}{@{}l@{}}{\scriptsize $^*$ Incluye unroll $4\times$ aplicado por el compilador.}
+\end{tabular}
+\end{table}
+
+\subsection{An\'alisis Roofline}
+
+Las Figuras~\ref{fig:roofline-escalar} a~\ref{fig:roofline-explicita}
+presentan el modelo Roofline generado por Intel Advisor para cada
+versi\'on.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{graficaRoofline-Escalar}
+\end{center}
+\caption{Modelo Roofline --- versi\'on Escalar. El punto rojo
+se ubica con AI $\approx 0.33$~FLOP/Byte y $\approx 6$--8~GFLOPS,
+en la zona acotada entre los techos de ancho de banda L2/L3 y el
+techo escalar (9.28~GFLOPS).}
+\label{fig:roofline-escalar}
+\end{figure}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{graficaRoofline-Auto}
+\end{center}
+\caption{Modelo Roofline --- versi\'on Autom\'atica. El punto se
+sit\'ua en la misma zona que el Escalar; la ganancia vectorial es
+m\'inima porque la memoria no puede alimentar los registros AVX2
+a la velocidad m\'axima.}
+\label{fig:roofline-auto}
+\end{figure}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{graficaRoofline-Guiada}
+\end{center}
+\caption{Modelo Roofline --- versi\'on Guiada. Comportamiento
+id\'entico a las versiones anteriores. El ancho vectorial de~8
+(menor al de la versi\'on autom\'atica) resulta en rendimiento
+similar al escalar.}
+\label{fig:roofline-guiada}
+\end{figure}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{graficaRoofline-Explicita}
+\end{center}
+\caption{Modelo Roofline --- versi\'on Expl\'icita. A pesar del
+ancho efectivo de~32 floats (con unroll), el punto permanece en la
+misma zona \textit{memory-bound}, con rendimiento ligeramente
+superior al escalar.}
+\label{fig:roofline-explicita}
+\end{figure}
+
+En los cuatro casos, el punto de operaci\'on se ubica en la regi\'on
+denominada ``\textit{Bound by compute and memory roofs}'', a la
+izquierda del punto de cresta del Roofline.
+La intensidad aritm\'etica medida por Advisor para el programa
+completo es de $\mathcal{I}_{\text{prog}} = 0.100$~FLOP/Byte,
+inferior al valor te\'orico del kernel ($0.333$~FLOP/Byte),
+porque Advisor incluye todas las operaciones de memoria del
+programa (I/O de imagen PGM, c\'alculo de gradientes Prewitt,
+replicaci\'on de datos), que diluyen la intensidad global.
+
+\subsection{M\'etricas Generales del Programa}
+
+Las Figuras~\ref{fig:metrics-escalar}
+y~\ref{fig:metrics-auto} muestran los Program Metrics
+reportados por Intel Advisor para las versiones Escalar y
+Autom\'atica como versiones representativas.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{summaryProgramMetrics-Escalar}
+\end{center}
+\caption{Program Metrics --- versi\'on Escalar. Tiempo total
+$0.28$~s; rendimiento $0.76$~GFLOPS; tiempo del bucle vectorizado
+(SSE escalar) $0.03$~s ($11\%$) frente a $0.24$~s ($89\%$) de
+c\'odigo escalar (I/O, gradientes, replicaci\'on). ISA del
+programa: AVX2, AVX, SSE2, SSE.}
+\label{fig:metrics-escalar}
+\end{figure}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{summaryProgramMetrics-Auto}
+\end{center}
+\caption{Program Metrics --- versi\'on Autom\'atica. Tiempo total
+$0.27$~s; rendimiento $0.76$~GFLOPS; tiempo del bucle AVX2
+$0.03$~s ($11\%$). ISA del programa: AVX2, AVX, SSE2 (sin SSE
+puro). La distribuci\'on de tiempos refleja que el kernel
+vectorizado es solo una peque\~na fracci\'on del programa total.}
+\label{fig:metrics-auto}
+\end{figure}
+
+La Tabla~\ref{tab:advisor-metricas} consolida los datos de
+Program Metrics para las cuatro versiones.
+
+\begin{table}[htb]
+\centering
+\caption{Resumen de m\'etricas de Intel Advisor (Program Metrics).}
+\label{tab:advisor-metricas}
+\footnotesize
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Versi\'on} & \textbf{Elapsed (s)} & \textbf{GFLOPS} &
+\textbf{AI (FLOP/B)} & \textbf{Kernel (\%)} \\
+\midrule
+Escalar      & 0.28 & 0.76 & 0.100 & 11.1 \\
+Autom\'atica  & 0.27 & 0.76 & 0.100 & 11.1 \\
+Guiada       & 0.24 & 0.86 & 0.100 & 12.5 \\
+Expl\'icita   & 0.26 & 0.82 & 0.100 & 12.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Las Figuras~\ref{fig:metrics-guiada} y~\ref{fig:metrics-explicita}
+complementan el panorama para las versiones Guiada y Expl\'icita.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{summaryProgramMetrics-Guiada}
+\end{center}
+\caption{Program Metrics --- versi\'on Guiada. Tiempo total
+$0.24$~s; rendimiento $0.86$~GFLOPS; bucle AVX2 con
+\texttt{simdlen(8)} corresponde al $12.5\%$ del tiempo. Pese a
+que el ancho vectorial es inferior al de la versi\'on autom\'atica,
+el tiempo total es el menor de las cuatro, por variaciones de
+timing en el c\'odigo escalar circundante.}
+\label{fig:metrics-guiada}
+\end{figure}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{summaryProgramMetrics-Explicita}
+\end{center}
+\caption{Program Metrics --- versi\'on Expl\'icita. Tiempo total
+$0.26$~s; rendimiento $0.82$~GFLOPS; bucle AVX2 el $12\%$ del
+tiempo. Dos bucles escalares adicionales de c\'alculo de gradientes
+Prewitt (\texttt{calcular\_gradientes:57}, \texttt{:62}) son
+visibles en el Survey de esta versi\'on; en las dem\'as no superan
+el umbral de medici\'on de Advisor.}
+\label{fig:metrics-explicita}
+\end{figure}
+
+Un hallazgo relevante es que el tiempo total del programa est\'a
+dominado ($\approx 88$--$89\%$) por c\'odigo escalar: lectura de
+la imagen PGM, c\'alculo de gradientes Prewitt con las m\'ascaras
+3$\times$3, replicaci\'on de datos en memoria y escritura del
+resultado.
+El kernel vectorizado representa \'unicamente el $11$--$12\%$
+del tiempo de ejecuci\'on total.
+Esta distribuci\'on es independiente de la estrategia de
+vectorizaci\'on empleada, ya que las partes escalares del
+programa son las mismas en las cuatro versiones.
+
+\subsection{An\'alisis de C\'odigo Activo (Code Analytics)}
+
+El panel Code Analytics de Intel Advisor identifica las funciones
+que mayor tiempo de c\'omputo consumen dentro de los bucles
+vectorizados.
+En las cuatro versiones, la funci\'on m\'as activa reportada es
+\texttt{\_\_intel\_avx\_rep\_memset}, que es la rutina interna
+del compilador para inicializaci\'on de memoria usando
+instrucciones AVX.
+Esto confirma que la mayor parte del tiempo vectorizado
+corresponde a transferencias de datos en memoria y no a
+operaciones aritm\'eticas, consistente con el car\'acter
+\textit{memory-bound} revelado por el Roofline.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{codeAnalytics-Escalar}
+\end{center}
+\caption{Code Analytics --- versi\'on Escalar. El tiempo total
+registrado en el bucle es de $0.16$~s, con un GINTOPS (giga
+operaciones enteras por segundo) de speedup $6.9\times$ respecto
+al techo escalar de referencia. La funci\'on dominante es
+\texttt{\_\_intel\_avx\_rep\_memset}, lo que confirma que el
+tiempo se gasta principalmente en movimiento de datos.}
+\label{fig:analytics-escalar}
+\end{figure}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=\columnwidth]{codeAnalytics-Explicita}
+\end{center}
+\caption{Code Analytics --- versi\'on Expl\'icita. Tiempo de
+$0.15$~s con speedup GINTOPS de $5.8\times$. Comparando con
+la versi\'on Escalar ($6.9\times$), la diferencia en el perfil
+de funciones activas confirma que los intr\'insecos AVX2
+modifican el patr\'on de acceso a memoria respecto al c\'odigo
+escalar, aunque ambas versiones siguen siendo dominadas por la
+transferencia de datos.}
+\label{fig:analytics-explicita}
+\end{figure}

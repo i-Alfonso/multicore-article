@@ -1,0 +1,178 @@
+% =========================================================
+%  SECCIÓN V — DISCUSIÓN
+% =========================================================
+\section{Discusi\'on}
+
+\subsection{Comparaci\'on entre Versiones de Vectorizaci\'on}
+
+Los resultados muestran que la vectorizaci\'on, aunque presente,
+produce ganancias modestas sobre el kernel Prewitt en el hardware
+utilizado.
+La versi\'on autom\'atica es la que mejor rendimiento ofrece
+($1.24\times$), seguida de la expl\'icita ($1.21\times$).
+Resulta llamativo que la vectorizaci\'on guiada con
+\texttt{simdlen(8)} no mejore significativamente sobre la escalar
+($1.01\times$) pese a estar vectorizada con AVX2.
+
+Este comportamiento se explica por el papel del ancho vectorial
+real.
+La versi\'on autom\'atica utiliza un ancho de~16~floats (AVX2
+con posible unroll adicional), procesando el doble de datos por
+iteraci\'on que la guiada (ancho~8).
+La expl\'icita, aunque nominalmente de ancho~8, recibe un
+desenrollado $4\times$ del compilador, resultando en un ancho
+efectivo de~32, lo que tambi\'en supera a la guiada.
+Sin embargo, todos estos anchos vectoriales son incapaces de
+saturar el ancho de banda de memoria en igual medida que lo
+har\'ian en un kernel de mayor intensidad aritm\'etica.
+
+Desde la perspectiva de la complejidad de implementaci\'on:
+\begin{itemize}
+  \item La \textbf{autom\'atica} requiere el menor esfuerzo y
+    produce el mejor resultado; solo necesita compilar con
+    \texttt{-O3 -march=native} y usar \texttt{\_\_restrict}.
+  \item La \textbf{guiada} requiere conocer el pragma de OpenMP
+    SIMD y elegir el \texttt{simdlen} adecuado; result\'o inferior
+    porque \texttt{simdlen(8)} es m\'as conservador que la
+    decisi\'on autom\'atica del compilador.
+  \item La \textbf{expl\'icita} requiere dominar los intr\'insecos
+    AVX2 y resulta en rendimiento ligeramente menor que la
+    autom\'atica, mostrando que el compilador tambi\'en puede
+    optimizar el c\'odigo escalar mejor que la versi\'on manual
+    de ancho~8 sin unroll.
+\end{itemize}
+
+\subsection{Interpretaci\'on del Modelo Roofline}
+
+La intensidad aritm\'etica te\'orica del kernel es
+$\mathcal{I} = 0.333$ FLOP/Byte (ec.~\ref{eq:ai}).
+Este valor sit\'ua el kernel \textit{por debajo} del punto de
+cresta del Roofline calculado como:
+
+\begin{equation}
+  \mathcal{I}_{\text{cresta}} =
+  \frac{P_{\text{peak}}}{B_{\text{mem}}} \approx
+  \frac{9.28 \text{ GFLOPS}}{24 \text{ GB/s}} \approx
+  0.387 \text{ FLOP/Byte}
+\end{equation}
+
+Al ser $\mathcal{I} = 0.333 < \mathcal{I}_{\text{cresta}} = 0.387$,
+el kernel es \textbf{memory-bound}: el cuello de botella es el
+ancho de banda de memoria, no la capacidad de c\'omputo.
+Esto significa que aunque se utilicen instrucciones AVX2 de
+m\'axima eficiencia, los registros YMM permanecer\'an ociosos
+una parte del tiempo esperando que la memoria entregue los datos.
+
+El techo alcanzable con la memoria DRAM a $24$~GB/s ser\'ia:
+\begin{equation}
+  P_{\max}^{\text{DRAM}} = 0.333 \times 24 \approx 8.0 \text{ GFLOPS}
+\end{equation}
+
+Los resultados experimentales (5.92--7.34~GFLOPS) son coherentes
+con este l\'imite te\'orico, confirmando que el kernel opera
+pr\'oxima a la banda de datos de la jerarqu\'ia de cach\'e
+L2/L3 del procesador ($65$--$190$~GB/s) m\'as que de la DRAM,
+lo que explica que los GFLOPS medidos superen el techo DRAM.
+
+\subsection{ISA Detectada por Versi\'on}
+
+Intel Advisor reporta la ISA (\textit{Instruction Set Architecture})
+utilizada en cada programa:
+
+\begin{itemize}
+  \item \textbf{Escalar}: AVX2, AVX, SSE2, \textbf{SSE}.
+    La presencia de instrucciones SSE puras (sin empaquetado)
+    confirma que el kernel usa registros XMM en modo escalar
+    (un solo float por registro), no SIMD empaquetado.
+    El flag \texttt{-no-vec} proh\'ibe el uso vectorial, pero
+    el procesador sigue usando los registros SSE para operaciones
+    escalares.
+
+  \item \textbf{Autom\'atica}: AVX2, AVX, SSE2 (sin SSE puro).
+    La ausencia de SSE puro confirma que el kernel escal\'o al
+    modo AVX2 empaquetado.
+
+  \item \textbf{Guiada}: AVX2, AVX, SSE2 (sin SSE puro).
+    Idéntico al autom\'atico en cuanto a ISA, aunque con ancho~8
+    en vez de~16.
+
+  \item \textbf{Expl\'icita}: AVX2, AVX, SSE2 (sin SSE puro).
+    Los intr\'insecos \texttt{\_mm256\_*} garantizan el uso de
+    registros YMM de 256~bits.
+\end{itemize}
+
+\subsection{Dominancia del C\'odigo Escalar y Ley de Amdahl}
+
+Un resultado relevante es que el bucle de replicaci\'on de
+datos (el que extiende la imagen 800 veces en memoria para
+alcanzar $N_{\text{tot}}$) consume entre $0.040$ y $0.070$~s,
+superando al propio kernel vectorizado ($0.030$~s).
+Esto implica que la mayor parte del tiempo lo ocupan operaciones
+fuera del kernel: lectura del archivo PGM, c\'alculo de los
+gradientes Prewitt con las m\'ascaras $3\times3$ (bucle escalar
+de 254 iteraciones), replicaci\'on de datos y escritura
+del resultado.
+
+Este comportamiento puede analizarse formalmente con la
+\textbf{Ley de Amdahl}~\cite{sutter2005}.
+Sea $p$ la fracci\'on paralelizable del programa y $f$ el
+factor de aceleraci\'on (\textit{speedup}) de esa fracci\'on.
+El speedup total del programa est\'a acotado por:
+
+\begin{equation}
+  S(f) = \frac{1}{(1-p) + p/f}
+  \label{eq:amdahl}
+\end{equation}
+
+En nuestro caso, $p \approx 0.12$ (el kernel representa el
+$12\%$ del tiempo total) y $1-p \approx 0.88$ es la fracci\'on
+escalar fija.
+La Tabla~\ref{tab:amdahl} muestra el speedup total m\'aximo
+te\'orico en funci\'on del factor $f$ del kernel:
+
+\begin{table}[htb]
+\centering
+\caption{Speedup m\'aximo total predicho por la Ley de Amdahl
+($p=0.12$, $1-p=0.88$).}
+\label{tab:amdahl}
+\footnotesize
+\begin{tabular}{@{}ccc@{}}
+\toprule
+\textbf{Speedup kernel} $f$ & \textbf{Speedup total} $S(f)$ &
+\textbf{Mejora (\%)} \\
+\midrule
+$1\times$ (escalar)  & 1.00 &  ---  \\
+$2\times$            & 1.09 &  +9\% \\
+$4\times$            & 1.11 & +11\% \\
+$8\times$  (AVX2 t.) & 1.12 & +12\% \\
+$16\times$ (AVX2 m.) & 1.12 & +12\% \\
+$\infty$             & 1.14 & +14\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+El speedup te\'orico m\'aximo posible, incluso vectorizando el
+kernel infinitamente r\'apido, es de apenas $1.14\times$.
+Los speedups experimentales observados ($1.01$--$1.24\times$)
+son consistentes con este l\'imite te\'orico, validando que
+el dise\~no del experimento es correcto.
+La \'unica forma de superar este techo ser\'ia vectorizar
+tambi\'en las partes escalares del programa (c\'alculo de
+gradientes, replicaci\'on de datos).
+
+\subsection{Limitaciones y Trabajo Futuro}
+
+La m\'etrica \textit{Vectorization Gain/Efficiency} de Intel
+Advisor reporta \textit{Not Available} en todas las versiones.
+Esto se debe a que dicha m\'etrica requiere el compilador Intel
+C++ cl\'asico (\texttt{icc}/\texttt{icpc} versi\'on 16+), y el
+presente trabajo utiliz\'o \texttt{icpx} (compilador DPC++ de
+la generaci\'on oneAPI).
+Para trabajo futuro se recomienda explorar:
+(a)~operadores de mayor intensidad aritm\'etica como el filtro
+Gaussiano o la convolución 2D densa, que ser\'ian m\'as
+sensibles a la vectorizaci\'on;
+(b)~an\'alisis multi-hilo con OpenMP para aprovechar los
+14~n\'ucleos disponibles;
+(c)~uso de AVX-512 si el hardware lo soporta, para alcanzar
+anchos de~16 o~32 floats con mayor eficiencia que el unroll.

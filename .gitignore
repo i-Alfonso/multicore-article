@@ -1,0 +1,51 @@
+# =============================================
+# .gitignore — Proyecto Prewitt Multicore
+# =============================================
+
+# --- Binarios compilados ---
+Escalar/escalar
+Auto/auto
+Guiada/guiada
+Explicita/explicita
+gen_imagen
+
+# --- Objetos y archivos temporales de compilacion ---
+*.o
+*.a
+*.so
+
+# --- Reportes del compilador Intel (muy grandes) ---
+*.optrpt
+
+# --- Proyectos de Intel Advisor (pueden ser GB) ---
+Escalar/adv_escalar/
+Auto/adv_auto/
+Guiada/adv_guiada/
+Explicita/adv_explicita/
+
+# --- Archivos temporales de LaTeX ---
+latex-informe/*.aux
+latex-informe/*.log
+latex-informe/*.out
+latex-informe/*.bbl
+latex-informe/*.blg
+latex-informe/*.toc
+latex-informe/*.lof
+latex-informe/*.lot
+latex-informe/*.fls
+latex-informe/*.fdb_latexmk
+latex-informe/*.synctex.gz
+
+# --- Imagenes de salida generadas por los kernels ---
+Escalar/output_escalar.pgm
+Auto/output_auto.pgm
+Guiada/output_guiada.pgm
+Explicita/output_explicita.pgm
+
+# --- Imagen sintetica (solo conservar la real) ---
+input1.pgm
+
+# --- Archivos del sistema ---
+.DS_Store
+*~
+*.swp

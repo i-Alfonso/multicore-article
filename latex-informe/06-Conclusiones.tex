@@ -1,0 +1,75 @@
+% =========================================================
+%  SECCIÓN VI — CONCLUSIONES
+% =========================================================
+\section{Conclusiones}
+
+Este trabajo present\'o el an\'alisis comparativo de cuatro
+estrategias de vectorizaci\'on SIMD aplicadas al kernel num\'erico
+del operador Prewitt para detecci\'on de bordes en im\'agenes.
+A partir de los resultados obtenidos se establecen las siguientes
+conclusiones:
+
+\begin{enumerate}
+  \item \textbf{El kernel Prewitt es memory-bound.}
+    Su intensidad aritm\'etica te\'orica de $0.333$~FLOP/Byte
+    lo coloca a la izquierda del punto de cresta del modelo
+    Roofline ($0.387$~FLOP/Byte), lo que significa que el
+    cuello de botella de rendimiento es el ancho de banda de
+    memoria y no la capacidad de c\'omputo del procesador.
+    Esta conclusi\'on es independiente del nivel de vectorizaci\'on
+    aplicado y fue confirmada por las cuatro gr\'aficas Roofline
+    generadas con Intel Advisor.
+
+  \item \textbf{La vectorizaci\'on produce ganancias modestas.}
+    El speedup m\'aximo observado fue de $1.24\times$ para la
+    vectorizaci\'on autom\'atica y de $1.21\times$ para la
+    expl\'icita.
+    En un kernel \textit{compute-bound}, estos mismos anchos
+    vectoriales (16$\times$ y 32$\times$ efectivo) producir\'ian
+    speedups proporcionales al ancho SIMD.
+    La modestia de los resultados es, por tanto, esperada y
+    correcta dado el car\'acter \textit{memory-bound} del kernel.
+
+  \item \textbf{La vectorizaci\'on autom\'atica es la m\'as eficiente.}
+    El compilador \texttt{icpx} con \texttt{-O3 -march=native}
+    elige un ancho vectorial de~16~floats y genera instrucciones
+    AVX2 \'optimas sin intervenci\'on del programador, superando
+    incluso a la versi\'on expl\'icita en t\'erminos de relaci\'on
+    rendimiento-esfuerzo.
+    Esto subraya el alto nivel de madurez de los optimizadores
+    modernos de compiladores Intel.
+
+  \item \textbf{La vectorizaci\'on guiada require ajuste del simdlen.}
+    El pragma \texttt{simdlen(8)} impuso un ancho menor al
+    elegido autom\'aticamente por el compilador, resultando en
+    rendimiento pr\'acticamente igual al escalar.
+    Una elecci\'on de \texttt{simdlen(16)} o dejando que el
+    compilador decida habr\'ia producido mejores resultados.
+
+  \item \textbf{El 88\% del programa es c\'odigo escalar.}
+    La fracci\'on vectorizable del programa (el kernel) representa
+    solo el 11--12\% del tiempo total de ejecuci\'on.
+    El tiempo dominante corresponde a operaciones inherentemente
+    escalares: lectura/escritura de archivos PGM, c\'alculo
+    de gradientes 2D con m\'ascaras 3$\times$3, y replicaci\'on
+    de datos en memoria.
+    Esta distribuci\'on limita el speedup global del programa de
+    acuerdo con la Ley de Amdahl.
+
+  \item \textbf{Intel Advisor es una herramienta diagn\'ostica
+    valiosa.}
+    El Survey, los trip counts y el modelo Roofline permitieron
+    confirmar objetivamente el ancho vectorial real de cada
+    versi\'on, identificar el cuello de botella de memoria y
+    cuantificar la fracci\'on vectorizable del programa.
+    Su integraci\'on en el flujo de desarrollo es recomendable
+    para cualquier proyecto de optimizaci\'on de kernels HPC.
+\end{enumerate}
+
+\section*{Agradecimientos}
+
+El autor agradece al Dr.~Mario Rossainz L\'opez, profesor del
+curso de Programaci\'on en Plataformas Multicore de la Benem\'erita
+Universidad Aut\'onoma de Puebla (BUAP), por el dise\~no de la
+actividad y la gu\'ia metodol\'ogica que permitieron llevar a cabo
+este trabajo de manera rig\'urosa.

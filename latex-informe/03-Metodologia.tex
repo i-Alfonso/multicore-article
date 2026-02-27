@@ -1,0 +1,197 @@
+% =========================================================
+%  SECCIÓN III — METODOLOGÍA
+% =========================================================
+\section{Metodolog\'ia}
+
+\subsection{Descripci\'on del Kernel}
+
+El kernel num\'erico implementado calcula la magnitud del
+gradiente del operador Prewitt (ec.~\ref{eq:magnitud}) sobre
+un arreglo unidimensional de $N$ elementos de tipo
+\texttt{float} (32~bits).
+Las im\'agenes de entrada tienen un tama\~no de $256 \times 256$
+p\'ixeles en formato PGM (\textit{Portable Gray Map}) binario
+(P5), que es el formato de imagen en escala de grises sin
+compresi\'on m\'as sencillo disponible en el est\'andar Netpbm.
+
+Para obtener mediciones estables de rendimiento con Intel Advisor
+se requiere que el n\'umero de operaciones sea suficientemente
+grande~\cite{intel_advisor}.
+Por ello, el kernel se aplica sobre $N_{\text{tot}}$ elementos:
+
+\begin{equation}
+  N_{\text{tot}} = 256 \times 256 \times 800 = 52{,}428{,}800
+  \label{eq:ntot}
+\end{equation}
+
+Es decir, el kernel se ejecuta como si se procesaran 800 r\'eplicas
+de la imagen original de forma contigua en memoria, garantizando
+un n\'umero de iteraciones suficiente para que el perfilador
+de Intel Advisor pueda medir con precisi\'on los trip counts,
+la intensidad aritm\'etica y el modelo Roofline.
+
+Para asegurar la correcta generaci\'on de instrucciones SIMD,
+los tres arreglos ($G_x$, $G_y$ y $\textit{Mag}$) se alojan con
+alineaci\'on a 32~Bytes mediante \texttt{\_mm\_malloc}:
+
+\begin{lstlisting}[language=C++,caption={Alocaci\'on alineada de arreglos.}]
+float* Gx  = (float*)_mm_malloc(N * sizeof(float), 32);
+float* Gy  = (float*)_mm_malloc(N * sizeof(float), 32);
+float* Mag = (float*)_mm_malloc(N * sizeof(float), 32);
+\end{lstlisting}
+
+El calificador \texttt{\_\_restrict} se usa en todas las versiones
+para indicar al compilador que los punteros no se solapan en
+memoria (\textit{no aliasing}), condici\'on necesaria para que
+la vectorizaci\'on autom\'atica sea segura.
+
+\subsection{Plataforma Experimental}
+
+\textbf{Hardware}: Procesador Intel de 14 n\'ucleos f\'isicos
+(gen.~Core de \'ultima generaci\'on), con soporte para extensiones
+AVX2 y SSE4.2.
+La arquitectura reportada por Intel Advisor incluye:
+techo vectorial SP FMA Peak de $148.8$~GFLOPS (AVX-512 FMA),
+techo de adici\'on vectorial SP de $74.55$~GFLOPS (AVX2/AVX-512),
+techo escalar SP de $9.28$~GFLOPS,
+ancho de banda L1 $\approx 413$~GB/s,
+ancho de banda L2 $\approx 190$~GB/s,
+ancho de banda L3 $\approx 65$--$73$~GB/s,
+y ancho de banda DRAM de $24$--$27$~GB/s.
+
+\textbf{Software}: Compilador Intel \texttt{icpx} (Intel oneAPI
+DPC++/C++ Compiler 2025.3.2) sobre Linux (Fedora 43, kernel
+6.18.12, 64~bits).
+Sistema de profiling: Intel Advisor versi\'on incluida en oneAPI
+2025.3.2.
+
+Las opciones de compilaci\'on para cada versi\'on son:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Versi\'on} & \textbf{Flags de compilaci\'on} \\
+\midrule
+Escalar    & \texttt{-g -O2 -no-vec -std=c++17 -fno-inline} \\
+Autom\'atica & \texttt{-g -O3 -march=native -std=c++17 -fno-inline} \\
+Guiada     & \texttt{-g -O3 -march=native -qopenmp -std=c++17 -fno-inline} \\
+Expl\'icita & \texttt{-g -O3 -march=native -std=c++17 -fno-inline} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+En todas las versiones se a\~nade \texttt{-qopt-report=max}
+\texttt{-qopt-report-phase=vec} para generar el reporte de
+optimizaci\'on del compilador (\texttt{.optrpt}), que
+documenta si cada bucle fue vectorizado y con qu\'e ancho
+vectorial.
+
+\subsection{Versiones Implementadas}
+
+\textbf{Versi\'on 1 — Escalar (l\'inea base)}: El kernel
+no utiliza ninguna instrucci\'on SIMD.
+El flag \texttt{-no-vec} proh\'ibe la vectorizaci\'on
+autom\'atica al compilador:
+
+\begin{lstlisting}[language=C++,caption={Kernel escalar (versi\'on de referencia).}]
+void kernel_escalar(
+    const float* __restrict Gx,
+    const float* __restrict Gy,
+    float* __restrict Mag, int N)
+{
+    for (int i = 0; i < N; i++)
+        Mag[i] = sqrtf(Gx[i]*Gx[i] + Gy[i]*Gy[i]);
+}
+\end{lstlisting}
+
+\textbf{Versi\'on 2 — Autom\'atica}: C\'odigo id\'entico al
+escalar, pero compilado con \texttt{-O3 -march=native}.
+El compilador Intel \texttt{icpx} detecta que el bucle es
+vectorizable (punteros con \texttt{\_\_restrict}, sin
+dependencias entre iteraciones) y genera instrucciones AVX2:
+
+\begin{lstlisting}[language=C++,caption={Kernel con vectorizaci\'on autom\'atica.}]
+void kernel_auto(
+    const float* __restrict Gx,
+    const float* __restrict Gy,
+    float* __restrict Mag, int N)
+{
+    for (int i = 0; i < N; i++)
+        Mag[i] = sqrtf(Gx[i]*Gx[i] + Gy[i]*Gy[i]);
+}
+\end{lstlisting}
+
+\textbf{Versi\'on 3 — Guiada}: Se a\~nade la directiva
+\texttt{\#pragma omp simd simdlen(8)} para indicar expl\'icitamente
+al compilador que vectorice con un ancho de 8~elementos
+(256~bits, registros YMM):
+
+\begin{lstlisting}[language=C++,caption={Kernel con vectorizaci\'on guiada.}]
+void kernel_guiado(
+    const float* __restrict Gx,
+    const float* __restrict Gy,
+    float* __restrict Mag, int N)
+{
+    #pragma omp simd simdlen(8)
+    for (int i = 0; i < N; i++)
+        Mag[i] = sqrtf(Gx[i]*Gx[i] + Gy[i]*Gy[i]);
+}
+\end{lstlisting}
+
+\textbf{Versi\'on 4 — Expl\'icita}: El programador escribe
+directamente las instrucciones AVX2 mediante intr\'insecos
+\texttt{\_mm256\_*}.
+El bucle principal procesa 8~floats por iteraci\'on; el bucle
+residual maneja los elementos sobrantes cuando $N$ no es
+m\'ultiplo de~8:
+
+\begin{lstlisting}[language=C++,caption={Kernel con intr\'insecos AVX2 expl\'icitos.}]
+void kernel_explicito(
+    const float* __restrict Gx,
+    const float* __restrict Gy,
+    float* __restrict Mag, int N)
+{
+    int i = 0;
+    for (; i <= N - 8; i += 8) {
+        __m256 vx  = _mm256_loadu_ps(&Gx[i]);
+        __m256 vy  = _mm256_loadu_ps(&Gy[i]);
+        __m256 vx2 = _mm256_mul_ps(vx, vx);
+        __m256 vy2 = _mm256_mul_ps(vy, vy);
+        __m256 sum = _mm256_add_ps(vx2, vy2);
+        __m256 res = _mm256_sqrt_ps(sum);
+        _mm256_storeu_ps(&Mag[i], res);
+    }
+    for (; i < N; i++)  // residual escalar
+        Mag[i] = sqrtf(Gx[i]*Gx[i] + Gy[i]*Gy[i]);
+}
+\end{lstlisting}
+
+\subsection{Procedimiento de An\'alisis con Intel Advisor}
+
+Para cada versi\'on se ejecutaron dos fases de an\'alisis de
+Intel Advisor desde l\'inea de comandos:
+
+\begin{enumerate}
+  \item \textbf{Survey + mezcla de instrucciones est\'aticas}:
+\begin{lstlisting}[language=bash,caption={Fase Survey de Intel Advisor.},numbers=none]
+advisor --collect=survey
+        --static-instruction-mix
+        --project-dir=./adv_X
+        -- ./ejecutable
+\end{lstlisting}
+
+  \item \textbf{Tripcounts + FLOP}:
+\begin{lstlisting}[language=bash,caption={Fase Tripcounts de Intel Advisor.},numbers=none]
+advisor --collect=tripcounts
+        --flop
+        --project-dir=./adv_X
+        -- ./ejecutable
+\end{lstlisting}
+\end{enumerate}
+
+Posteriormente se abri\'o la interfaz gr\'afica de Intel Advisor
+(\texttt{advisor-gui}) con los proyectos generados para obtener
+las gr\'aficas Roofline, los Program Metrics y el Survey de
+bucles, de los que se extrajeron capturas de pantalla para su
+an\'alisis.

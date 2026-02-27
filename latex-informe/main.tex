@@ -1,0 +1,151 @@
+% =========================================================
+%  Mini Proyecto 1 — Vectorizacion de un Kernel Numerico
+%  Deteccion de Bordes con el Operador Prewitt
+%  Programacion en Plataformas Multicore
+%  Dr. Mario Rossainz Lopez — BUAP — 2026
+% =========================================================
+\documentclass[twocolumn,twoside]{Jornadas}
+
+% ---- Codificacion y lenguaje ----
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+
+% ---- Matematicas ----
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% ---- Graficos y figuras ----
+\usepackage{graphicx}
+\usepackage[caption=false,font=footnotesize]{subfig}
+\usepackage{caption}
+\captionsetup{font=footnotesize}
+
+% ---- Tablas ----
+\usepackage{booktabs}
+\usepackage{array}
+
+% ---- Flotantes (permitir mas figuras por pagina) ----
+\setcounter{topnumber}{10}
+\setcounter{bottomnumber}{10}
+\setcounter{totalnumber}{10}
+\renewcommand{\topfraction}{1}
+\renewcommand{\bottomfraction}{1}
+\renewcommand{\textfraction}{0}
+\renewcommand{\floatpagefraction}{1}
+
+% ---- Colores y codigo fuente ----
+\usepackage[dvipsnames]{xcolor}
+\usepackage{listings}
+\definecolor{gray97}{gray}{.97}
+\definecolor{gray75}{gray}{.75}
+\definecolor{gray45}{gray}{.45}
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{codegray}{rgb}{0.4,0.4,0.4}
+\definecolor{codeblue}{rgb}{0,0,0.6}
+
+\lstset{
+    inputencoding=utf8,
+    extendedchars=true,
+    backgroundcolor=\color{gray97},
+    showstringspaces=false,
+    basicstyle=\scriptsize\ttfamily,
+    commentstyle=\itshape\color{codegreen},
+    keywordstyle=\bfseries\color{codeblue},
+    stringstyle=\color{gray45},
+    linewidth=.98\columnwidth,
+    xleftmargin=3mm,
+    breaklines=true,
+    numbers=left,
+    numbersep=6pt,
+    numberstyle=\tiny\color{codegray},
+    firstnumber=1,
+    frame=single,
+    rulecolor=\color{gray75},
+    escapeinside={(*@}{@*)},
+    literate=
+      {á}{\'a}1 {é}{\'e}1 {í}{\'\i}1 {ó}{\'o}1 {ú}{\'u}1
+      {Á}{\'A}1 {É}{\'E}1 {Í}{\'I}1 {Ó}{\'O}1 {Ú}{\'U}1
+      {ñ}{\~n}1 {Ñ}{\~N}1 {¿}{\textquestiondown}1 {¡}{\textexclamdown}1
+}
+
+% ---- Hiperenlaces ----
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{placeins}
+
+% ---- Ruta de figuras ----
+\graphicspath{{./Figuras/}}
+
+% ---- Separacion de silabas en espanol ----
+\hyphenation{vec-to-ri-za-cion ren-di-mien-to pro-ce-sa-mien-to
+             in-tri-se-cos in-ten-si-dad a-rit-me-ti-ca
+             me-mo-ria com-pi-la-dor}
+
+% =========================================================
+%  METADATOS DEL DOCUMENTO
+% =========================================================
+\title{Vectorizaci\'on de un Kernel Num\'erico Aplicado a la\\
+       Detecci\'on de Bordes en Im\'agenes y su An\'alisis\\
+       de Rendimiento usando Intel Advisor}
+
+\author{
+  Alfonso P\'erez Garc\'ia%
+  \thanks{Maestr\'ia en Sistemas Distribuidos,
+          Benem\'erita Universidad Aut\'onoma de Puebla (BUAP),
+          Puebla, Pue., M\'exico.}
+}
+
+% =========================================================
+\begin{document}
+
+\maketitle
+\markboth{}{}
+\pagestyle{empty}
+\thispagestyle{empty}
+
+% ---- Abstract ----
+\begin{abstract}
+Se presenta el an\'alisis de rendimiento de cuatro variantes de
+vectorizaci\'on SIMD aplicadas a un kernel num\'erico de detecci\'on
+de bordes mediante el operador Prewitt sobre im\'agenes en escala
+de grises de 256$\times$256 p\'ixeles.
+Las versiones implementadas son: escalar (sin vectorizaci\'on),
+vectorizaci\'on autom\'atica del compilador Intel \texttt{icpx},
+vectorizaci\'on guiada con \texttt{\#pragma omp simd simdlen(8)},
+y vectorizaci\'on expl\'icita con intr\'insecos AVX2.
+Los experimentos se ejecutaron con $N = 256 \times 256 \times 800 =
+52{,}428{,}800$ operaciones para obtener mediciones estables.
+El an\'alisis con Intel Advisor revela que el kernel es
+\textit{memory-bound} con intensidad aritm\'etica te\'orica
+$\mathcal{I} = 0.333$ FLOP/Byte, lo que limita las ganancias de
+vectorizaci\'on a un m\'aximo de $1.24\times$ sobre la versi\'on escalar
+(7.34 vs.\ 5.92~GFLOPS).
+Los resultados muestran que el cuello de botella no es la capacidad
+de c\'omputo SIMD, sino el ancho de banda de memoria disponible,
+confirmado por la gr\'afica Roofline de Intel Advisor.
+\end{abstract}
+
+\begin{keywords}
+  Vectorizaci\'on SIMD, Intel Advisor, operador Prewitt,
+  detecci\'on de bordes, rendimiento HPC, AVX2, an\'alisis Roofline,
+  \textit{memory-bound}.
+\end{keywords}
+
+% =========================================================
+%  SECCIONES
+% =========================================================
+\input{01-Introduccion}
+\input{02-MarcoTeorico}
+\input{03-Metodologia}
+\input{04-Resultados}
+\input{05-Discusion}
+\input{06-Conclusiones}
+
+% =========================================================
+%  BIBLIOGRAFIA
+% =========================================================
+\bibliographystyle{Jornadas}
+\bibliography{biblio}
+
+\end{document}

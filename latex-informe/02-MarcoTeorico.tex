@@ -1,0 +1,152 @@
+% =========================================================
+%  SECCIÓN II — MARCO TEÓRICO
+% =========================================================
+\section{Marco Te\'orico}
+
+\subsection{El Operador Prewitt y la Magnitud del Gradiente}
+
+El operador Prewitt~\cite{prewitt1970} es un operador diferencial
+discreto que aproxima el gradiente de la funci\'on de intensidad
+de una imagen en escala de grises.
+A diferencia del operador Sobel, el Prewitt utiliza pesos uniformes
+(todos iguales a~1) en sus m\'ascaras de convoluci\'on, lo que lo
+convierte en el m\'as simple de la familia de operadores basados
+en gradiente.
+
+Las dos m\'ascaras del operador son:
+
+\begin{equation}
+  K_x = \begin{pmatrix}
+    -1 & 0 & 1 \\
+    -1 & 0 & 1 \\
+    -1 & 0 & 1
+  \end{pmatrix}, \quad
+  K_y = \begin{pmatrix}
+    +1 & +1 & +1 \\
+     0 &  0 &  0 \\
+    -1 & -1 & -1
+  \end{pmatrix}
+  \label{eq:mascaras}
+\end{equation}
+
+donde $K_x$ detecta cambios en la direcci\'on horizontal (bordes
+verticales) y $K_y$ detecta cambios en la direcci\'on vertical
+(bordes horizontales).
+Tras calcular los gradientes $G_x$ e $G_y$ por convoluci\'on de
+la imagen con las m\'ascaras, la magnitud del gradiente en cada
+p\'ixel se obtiene como:
+
+\begin{equation}
+  G[i] = \sqrt{G_x[i]^2 + G_y[i]^2}
+  \label{eq:magnitud}
+\end{equation}
+
+Esta f\'ormula constituye el \textit{kernel num\'erico} objeto de
+este estudio.
+Para cada elemento $i$ del arreglo de datos se requieren exactamente
+cuatro operaciones de punto flotante: dos multiplicaciones
+($G_x^2$, $G_y^2$), una adici\'on y una ra\'iz cuadrada.
+Por tanto, la intensidad aritm\'etica te\'orica del kernel,
+entendida como el cociente entre operaciones de punto flotante
+(\textit{FLOPs}) y transferencias de memoria (\textit{Bytes}), es:
+
+\begin{equation}
+  \mathcal{I} = \frac{4 \text{ FLOPs}}{3 \times 4 \text{ Bytes}}
+             = \frac{4}{12} \approx 0.333 \text{ FLOP/Byte}
+  \label{eq:ai}
+\end{equation}
+
+donde el denominador refleja la lectura de los dos arreglos de
+entrada ($G_x$, $G_y$) y la escritura del arreglo de salida
+($\textit{Mag}$), cada uno de tipo \texttt{float} (4~Bytes).
+
+\subsection{Vectorizaci\'on SIMD}
+
+La vectorizaci\'on SIMD es una t\'ecnica de paralelismo de datos
+que permite ejecutar la misma operaci\'on aritm\'etica sobre
+m\'ultiples datos simult\'aneamente utilizando registros vectoriales
+anchos~\cite{reinders2007}.
+En los procesadores Intel modernos existen tres extensiones SIMD
+principales relevantes para este trabajo:
+
+\begin{itemize}
+  \item \textbf{SSE/SSE2} (\textit{Streaming SIMD Extensions}):
+    registros XMM de 128~bits, procesa hasta 4~floats por
+    instrucci\'on.
+  \item \textbf{AVX/AVX2} (\textit{Advanced Vector Extensions}):
+    registros YMM de 256~bits, procesa hasta 8~floats por
+    instrucci\'on.
+  \item \textbf{AVX-512}: registros ZMM de 512~bits, procesa
+    hasta 16~floats por instrucci\'on.
+\end{itemize}
+
+La vectorizaci\'on puede obtenerse mediante tres estrategias,
+en orden creciente de control por parte del programador:
+
+\begin{enumerate}
+  \item \textbf{Autom\'atica}: el compilador analiza el c\'odigo
+    escalar y genera instrucciones SIMD cuando es seguro hacerlo.
+    Requiere indicios como el calificador \texttt{\_\_restrict}
+    para descartar aliasing de punteros.
+
+  \item \textbf{Guiada}: el programador a\~nade pragmas o
+    directivas que instruyen al compilador a vectorizar un bucle
+    determinado con un ancho espec\'ifico.
+    La directiva \texttt{\#pragma omp simd simdlen(8)} indica
+    al compilador que genere SIMD con 8 elementos por vector.
+
+  \item \textbf{Expl\'icita}: el programador escribe directamente
+    las instrucciones vectoriales mediante intr\'insecos
+    (\textit{intrinsics}), funciones C que se mapean uno a uno con
+    instrucciones ensamblador SIMD.
+    Por ejemplo, \texttt{\_mm256\_sqrt\_ps} calcula la ra\'iz
+    cuadrada de 8~floats en paralelo usando el registro YMM.
+\end{enumerate}
+
+La principal ventaja te\'orica de la vectorizaci\'on es un
+incremento del rendimiento proporcional al ancho del vector:
+$8\times$ con AVX2 respecto al c\'omputo escalar.
+Sin embargo, en la pr\'actica este factor est\'a limitado por
+el ancho de banda de memoria del sistema~\cite{sutter2005}.
+
+\subsection{Intel Advisor y el Modelo Roofline}
+
+Intel Advisor~\cite{intel_advisor} es una herramienta de an\'alisis
+de rendimiento orientada a la optimizaci\'on de vectorizaci\'on
+y paralelismo.
+Ofrece dos tipos principales de an\'alisis:
+
+\begin{itemize}
+  \item \textbf{Survey}: identifica los bucles del programa,
+    determina si est\'an vectorizados o no, reporta el tiempo de
+    ejecuci\'on y el conteo de iteraciones (\textit{trip count}).
+
+  \item \textbf{Tripcounts + FLOP}: mide el n\'umero real de
+    operaciones de punto flotante ejecutadas y el volumen de
+    datos transferidos desde/hacia memoria, calculando as\'i la
+    intensidad aritm\'etica medida del programa.
+\end{itemize}
+
+El \textbf{modelo Roofline}~\cite{williams2009} es un marco
+visual para analizar el rendimiento de un kernel en funci\'on
+de su intensidad aritm\'etica.
+Define los l\'imites te\'oricos alcanzables como:
+
+\begin{equation}
+  P_{\max} = \min\!\left(P_{\text{peak}},\;
+             \mathcal{I} \times B_{\text{mem}}\right)
+  \label{eq:roofline}
+\end{equation}
+
+donde $P_{\max}$ es el rendimiento m\'aximo (GFLOPS),
+$P_{\text{peak}}$ es el pico computacional del procesador,
+$\mathcal{I}$ es la intensidad aritm\'etica (FLOP/Byte) y
+$B_{\text{mem}}$ es el ancho de banda de memoria (GB/s).
+
+Un kernel es \textit{memory-bound} cuando su punto de operaci\'on
+cae a la izquierda del ``punto de cresta'' (\textit{ridge point}),
+es decir, cuando la memoria no puede suministrar datos a la
+velocidad que el procesador puede calcular.
+En ese caso, incrementar las instrucciones SIMD no mejora el
+rendimiento, ya que el cuello de botella est\'a en el bus de
+datos y no en la unidad aritm\'etica.
