@@ -20,7 +20,7 @@ t_{\text{kernel}}$.
 \centering
 \caption{Rendimiento de las cuatro versiones del kernel Prewitt.}
 \label{tab:rendimiento}
-\footnotesize
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}lcccc@{}}
 \toprule
 \textbf{Versi\'on} & \textbf{Tiempo (s)} & \textbf{GFLOPS} &
@@ -31,7 +31,8 @@ Autom\'atica & 0.0286 & 7.34 & 22.02 & $\mathbf{1.24\times}$ \\
 Guiada      & 0.0351 & 5.97 & 17.90 & $1.01\times$ \\
 Expl\'icita  & 0.0293 & 7.15 & 21.44 & $1.21\times$ \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{table}
 
 El speedup m\'aximo observado es de $1.24\times$ para la
@@ -105,19 +106,24 @@ kernels principales.
 \centering
 \caption{Datos del Survey de Intel Advisor para el kernel Prewitt.}
 \label{tab:survey}
-\footnotesize
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}lcccc@{}}
 \toprule
 \textbf{Versi\'on} & \textbf{Tipo} & \textbf{ISA} &
 \textbf{Trip count} & \textbf{Ancho vec.} \\
 \midrule
-Escalar     & Scalar           & SSE  & 6{,}553{,}600 & 1  \\
-Autom\'atica & Vectorized (Body)& AVX2 & 3{,}276{,}800 & 16 \\
-Guiada      & Vectorized (Body)& AVX2 & 6{,}553{,}600 &  8 \\
-Expl\'icita  & Vectorized (Body)& AVX2 & 1{,}638{,}400 & 32$^*$ \\
+Escalar     & Scalar           & SSE  & 6{,}553{,}600$^{**}$ & 1  \\
+Autom\'atica & Vec.(Body)       & AVX2 & 3{,}276{,}800 & 16 \\
+Guiada      & Vec.(Body)       & AVX2 & 6{,}553{,}600 &  8 \\
+Expl\'icita  & Vec.(Body)       & AVX2 & 1{,}638{,}400 & 32$^*$ \\
 \bottomrule
-\multicolumn{5}{@{}l@{}}{\scriptsize $^*$ Incluye unroll $4\times$ aplicado por el compilador.}
-\end{tabular}
+\end{tabular}%
+}
+\par\vspace{2pt}
+{\scriptsize
+$^*$~Unroll $4\times$ del compilador; ancho efectivo $= 8 \times 4 = 32$.\quad
+$^{**}$~\texttt{-O2} aplica unroll~$8\times$ aun con \texttt{-no-vec};
+Advisor reporta $N/8 = 6{,}553{,}600$.}
 \end{table}
 
 \subsection{An\'alisis Roofline}
@@ -218,7 +224,7 @@ Program Metrics para las cuatro versiones.
 \centering
 \caption{Resumen de m\'etricas de Intel Advisor (Program Metrics).}
 \label{tab:advisor-metricas}
-\footnotesize
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}lcccc@{}}
 \toprule
 \textbf{Versi\'on} & \textbf{Elapsed (s)} & \textbf{GFLOPS} &
@@ -229,7 +235,8 @@ Autom\'atica  & 0.27 & 0.76 & 0.100 & 11.1 \\
 Guiada       & 0.24 & 0.86 & 0.100 & 12.5 \\
 Expl\'icita   & 0.26 & 0.82 & 0.100 & 12.0 \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{table}
 
 Las Figuras~\ref{fig:metrics-guiada} y~\ref{fig:metrics-explicita}

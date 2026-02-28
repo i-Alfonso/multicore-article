@@ -68,7 +68,7 @@ Sistema de profiling: Intel Advisor versi\'on incluida en oneAPI
 Las opciones de compilaci\'on para cada versi\'on son:
 
 \begin{center}
-\footnotesize
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}ll@{}}
 \toprule
 \textbf{Versi\'on} & \textbf{Flags de compilaci\'on} \\
@@ -78,7 +78,8 @@ Autom\'atica & \texttt{-g -O3 -march=native -std=c++17 -fno-inline} \\
 Guiada     & \texttt{-g -O3 -march=native -qopenmp -std=c++17 -fno-inline} \\
 Expl\'icita & \texttt{-g -O3 -march=native -std=c++17 -fno-inline} \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{center}
 
 En todas las versiones se a\~nade \texttt{-qopt-report=max}

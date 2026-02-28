@@ -68,11 +68,17 @@ El techo alcanzable con la memoria DRAM a $24$~GB/s ser\'ia:
   P_{\max}^{\text{DRAM}} = 0.333 \times 24 \approx 8.0 \text{ GFLOPS}
 \end{equation}
 
-Los resultados experimentales (5.92--7.34~GFLOPS) son coherentes
-con este l\'imite te\'orico, confirmando que el kernel opera
-pr\'oxima a la banda de datos de la jerarqu\'ia de cach\'e
-L2/L3 del procesador ($65$--$190$~GB/s) m\'as que de la DRAM,
-lo que explica que los GFLOPS medidos superen el techo DRAM.
+Los resultados experimentales (5.92--7.34~GFLOPS) se sit\'uan
+\emph{por debajo} de este l\'imite, confirmando que el kernel
+opera en la zona de ancho de banda de la cach\'e L2/L3
+del procesador ($65$--$190$~GB/s).
+La intensidad aritm\'etica medida por Advisor para el programa
+completo es $\mathcal{I}_{\text{prog}} = 0.100$~FLOP/Byte;
+a esa intensidad el techo DRAM equivaldr\'ia a
+$0.100 \times 24 = 2.4$~GFLOPS.
+Que los valores medidos (5.92--7.34~GFLOPS) superen ampliamente
+ese techo DRAM confirma que los datos son servidos desde la
+cach\'e L2/L3 y no desde la DRAM durante la mayor parte del tiempo.
 
 \subsection{ISA Detectada por Versi\'on}
 
@@ -141,21 +147,25 @@ te\'orico en funci\'on del factor $f$ del kernel:
 \textbf{Speedup kernel} $f$ & \textbf{Speedup total} $S(f)$ &
 \textbf{Mejora (\%)} \\
 \midrule
-$1\times$ (escalar)  & 1.00 &  ---  \\
-$2\times$            & 1.09 &  +9\% \\
-$4\times$            & 1.11 & +11\% \\
+$1\times$ (escalar)  & 1.00 &   ---  \\
+$2\times$            & 1.06 &  +6\% \\
+$4\times$            & 1.10 & +10\% \\
 $8\times$  (AVX2 t.) & 1.12 & +12\% \\
-$16\times$ (AVX2 m.) & 1.12 & +12\% \\
+$16\times$ (AVX2 m.) & 1.13 & +13\% \\
 $\infty$             & 1.14 & +14\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-El speedup te\'orico m\'aximo posible, incluso vectorizando el
-kernel infinitamente r\'apido, es de apenas $1.14\times$.
-Los speedups experimentales observados ($1.01$--$1.24\times$)
-son consistentes con este l\'imite te\'orico, validando que
-el dise\~no del experimento es correcto.
+El speedup m\'aximo del \emph{programa completo},
+incluso vectorizando el kernel infinitamente r\'apido,
+es de apenas $1.14\times$.
+Los speedups anteriores ($1.01$--$1.24\times$) corresponden
+\emph{\'unicamente al kernel}; el speedup del programa completo,
+estimado con los tiempos totales de Advisor
+(${\approx}0.24$--$0.28$~s), es de apenas ${\approx}1.03$--$1.04\times$,
+coherente con el techo de Amdahl y con la dominancia del c\'odigo
+escalar (88--89\% del tiempo total).
 La \'unica forma de superar este techo ser\'ia vectorizar
 tambi\'en las partes escalares del programa (c\'alculo de
 gradientes, replicaci\'on de datos).

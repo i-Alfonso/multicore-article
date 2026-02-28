@@ -42,8 +42,13 @@ de memoria del sistema, un fen\'omeno conocido como
 \textit{memory-bound}~\cite{williams2009}.
 
 El presente trabajo analiza estas cuatro estrategias aplicadas
-al kernel num\'erico del operador Prewitt~\cite{prewitt1970},
-utilizando Intel Advisor como herramienta de perfilado para
+al kernel num\'erico del operador Prewitt~\cite{prewitt1970}.
+Se elige el operador Prewitt frente al Sobel por su estructura
+con pesos uniformes ($\pm 1$), que produce una intensidad
+aritm\'etica te\'orica reducida ($\mathcal{I} \approx 0.333$~FLOP/Byte)
+y lo convierte en un candidato ideal para estudiar el
+comportamiento \textit{memory-bound} en el modelo Roofline.
+Se utiliza Intel Advisor como herramienta de perfilado para
 obtener datos objetivos sobre intensidad aritm\'etica, modelo
 Roofline y comportamiento de los bucles vectorizados.
 La hip\'otesis de trabajo es que la intensidad aritm\'etica del
