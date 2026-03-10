@@ -65,22 +65,36 @@ DPC++/C++ Compiler 2025.3.2) sobre Linux (Fedora 43, kernel
 Sistema de profiling: Intel Advisor versi\'on incluida en oneAPI
 2025.3.2.
 
-Las opciones de compilaci\'on para cada versi\'on son:
+Las opciones de compilaci\'on para cada versi\'on se resumen en
+la Tabla~\ref{tab:flags}.
 
-\begin{center}
+\begin{table}[h]
+\centering
+\caption{Opciones de compilaci\'on por versi\'on.}
+\label{tab:flags}
 \resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}ll@{}}
-\toprule
+\begin{tabular}{ll}
+\hline
 \textbf{Versi\'on} & \textbf{Flags de compilaci\'on} \\
-\midrule
+\hline
 Escalar    & \texttt{-g -O2 -no-vec -std=c++17 -fno-inline} \\
 Autom\'atica & \texttt{-g -O3 -march=native -std=c++17 -fno-inline} \\
 Guiada     & \texttt{-g -O3 -march=native -qopenmp -std=c++17 -fno-inline} \\
 Expl\'icita & \texttt{-g -O3 -march=native -std=c++17 -fno-inline} \\
-\bottomrule
+\hline
 \end{tabular}%
 }
-\end{center}
+\end{table}
+
+La versi\'on Escalar utiliza \texttt{-O2} en lugar de \texttt{-O3}
+para evitar que el compilador aplique transformaciones agresivas
+de bucles ---como desenrollado intensivo o \textit{software pipelining}---
+que podr\'ian mejorar el rendimiento escalar m\'as all\'a de lo
+que obtendr\'ia un programador t\'ipico sin vectorizaci\'on expl\'icita.
+El flag \texttt{-no-vec} desactiva la vectorizaci\'on SIMD,
+mientras que \texttt{-O2} preserva las optimizaciones escalares
+est\'andar, lo que proporciona la l\'inea base m\'as representativa
+y conservadora para medir la ganancia real de las estrategias SIMD.
 
 En todas las versiones se a\~nade \texttt{-qopt-report=max}
 \texttt{-qopt-report-phase=vec} para generar el reporte de

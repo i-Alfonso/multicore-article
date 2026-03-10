@@ -50,10 +50,12 @@ Este valor sit\'ua el kernel \textit{por debajo} del punto de
 cresta del Roofline calculado como:
 
 \begin{equation}
-  \mathcal{I}_{\text{cresta}} =
+\begin{split}
+  \mathcal{I}_{\text{cresta}} &=
   \frac{P_{\text{peak}}}{B_{\text{mem}}} \approx
-  \frac{9.28 \text{ GFLOPS}}{24 \text{ GB/s}} \approx
-  0.387 \text{ FLOP/Byte}
+  \frac{9.28 \text{ GFLOPS}}{24 \text{ GB/s}} \\
+  &\approx 0.387 \text{ FLOP/Byte}
+\end{split}
 \end{equation}
 
 Al ser $\mathcal{I} = 0.333 < \mathcal{I}_{\text{cresta}} = 0.387$,
@@ -170,6 +172,32 @@ La \'unica forma de superar este techo ser\'ia vectorizar
 tambi\'en las partes escalares del programa (c\'alculo de
 gradientes, replicaci\'on de datos).
 
+Para superar el l\'imite de $1.14\times$ predicho por Amdahl,
+es necesario reducir la fracci\'on escalar $1-p = 0.88$ del
+programa.
+Los dos candidatos principales son el bucle de c\'alculo de
+gradientes Prewitt ($3\times3$, convoluci\'on horizontal y
+vertical sobre las 254 filas interiores de la imagen) y la
+rutina de replicaci\'on de datos que extiende la imagen
+800~veces en memoria para alcanzar $N_{\text{tot}}$.
+Estos dos bucles operan actualmente en modo escalar a pesar de
+que sus patrones de acceso son regulares y potencialmente
+vectorizables.
+Si el bucle de replicaci\'on, que domina el tiempo escalar,
+se reescribiera con instrucciones AVX2 (\texttt{\_mm256\_store\_ps}),
+y el bucle de gradientes 2D se descompusiera en dos pasadas 1D
+separables y vectorizadas, la fracci\'on paralela $p'$
+aumentar\'ia considerablemente.
+Formalmente, si se pudiera reducir la fracci\'on escalar de
+$0.88$ a, por ejemplo, $0.30$, el techo de Amdahl pasar\'ia
+de $1.14\times$ a $1/(0.30) \approx 3.3\times$, lo que
+justifica la vectorizaci\'on integral del programa y no solo
+del kernel de magnitud.
+Este an\'alisis ilustra el principio central de la Ley de Amdahl:
+una vez que el componente optimizado representa una fracci\'on
+peque\~na del tiempo total, el foco de optimizaci\'on debe
+desplazarse hacia las partes que actualmente dominan la ejecuci\'on.
+
 \subsection{Limitaciones y Trabajo Futuro}
 
 La m\'etrica \textit{Vectorization Gain/Efficiency} de Intel
@@ -179,9 +207,21 @@ C++ cl\'asico (\texttt{icc}/\texttt{icpc} versi\'on 16+), y el
 presente trabajo utiliz\'o \texttt{icpx} (compilador DPC++ de
 la generaci\'on oneAPI).
 Para trabajo futuro se recomienda explorar:
-(a)~operadores de mayor intensidad aritm\'etica como el filtro
-Gaussiano o la convolución 2D densa, que ser\'ian m\'as
-sensibles a la vectorizaci\'on;
+(a)~operadores de mayor intensidad aritm\'etica, como el filtro
+Gaussiano separable.
+Un filtro Gaussiano 1D de radio~$k$ aplicado en dos pasadas
+(horizontal + vertical) requiere aproximadamente $4(2k+1)$
+FLOPs por p\'ixel frente a 12~Bytes transferidos
+(2~lecturas + 1~escritura de floats), lo que arroja
+$\mathcal{I} = (2k+1)/3$~FLOP/Byte:
+para $k=1$ ($3\times3$), $\mathcal{I} \approx 1.0$~FLOP/Byte;
+para $k=4$ ($9\times9$), $\mathcal{I} \approx 3.0$~FLOP/Byte.
+Estos valores superan el punto de cresta del Roofline
+($\mathcal{I}_{\text{cresta}} \approx 0.39$~FLOP/Byte con DRAM),
+situando el filtro Gaussiano en la zona \textit{compute-bound}
+donde la vectorizaci\'on AVX2 s\'i produce ganancias cercanas
+al factor te\'orico de~$8\times$, a diferencia del operador
+Prewitt que permanece en la zona \textit{memory-bound};
 (b)~an\'alisis multi-hilo con OpenMP para aprovechar los
 14~n\'ucleos disponibles;
 (c)~uso de AVX-512 si el hardware lo soporta, para alcanzar

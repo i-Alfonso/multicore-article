@@ -5,7 +5,7 @@
 
 \subsection{El Operador Prewitt y la Magnitud del Gradiente}
 
-El operador Prewitt~\cite{prewitt1970} es un operador diferencial
+El operador Prewitt~\cite{gonzalez2008,prewitt1970} es un operador diferencial
 discreto que aproxima el gradiente de la funci\'on de intensidad
 de una imagen en escala de grises.
 A diferencia del operador Sobel, el Prewitt utiliza pesos uniformes
@@ -51,8 +51,11 @@ entendida como el cociente entre operaciones de punto flotante
 (\textit{FLOPs}) y transferencias de memoria (\textit{Bytes}), es:
 
 \begin{equation}
-  \mathcal{I} = \frac{4 \text{ FLOPs}}{3 \times 4 \text{ Bytes}}
-             = \frac{4}{12} \approx 0.333 \text{ FLOP/Byte}
+\begin{split}
+  \mathcal{I} &= \frac{4 \text{ FLOPs}}{3 \times 4 \text{ Bytes}}
+               = \frac{4}{12} \\
+              &\approx 0.333 \text{ FLOP/Byte}
+\end{split}
   \label{eq:ai}
 \end{equation}
 
@@ -103,6 +106,26 @@ en orden creciente de control por parte del programador:
     cuadrada de 8~floats en paralelo usando el registro YMM.
 \end{enumerate}
 
+Un aspecto crucial para que el compilador pueda vectorizar
+autom\'aticamente un bucle es la ausencia de \textit{aliasing de
+punteros}.
+Cuando dos punteros pueden se\~nalar regiones solapadas en memoria,
+el compilador debe asumir que escribir a trav\'es de uno puede
+modificar el valor le\'ido a trav\'es del otro, lo que impide la
+reordenaci\'on de cargas y almacenamientos que la vectorizaci\'on
+requiere.
+El calificador \texttt{\_\_restrict} —extensi\'on est\'andar
+adoptada por los compiladores C/C++ modernos, incluido
+\texttt{icpx}--- permite al programador garantizar expl\'icitamente
+que los punteros as\'i decorados no comparten ninguna posici\'on
+de memoria con otros punteros dentro del \'ambito de la funci\'on.
+En el kernel Prewitt, los arreglos $G_x$, $G_y$ y $\textit{Mag}$
+son distintos por construcci\'on, de modo que declarar los tres
+par\'ametros con \texttt{const float* \_\_restrict} y
+\texttt{float* \_\_restrict} es sem\'anticamente correcto y
+constituye la condici\'on m\'inima que habilita la vectorizaci\'on
+autom\'atica en la versi\'on~2 (Autom\'atica).
+
 La principal ventaja te\'orica de la vectorizaci\'on es un
 incremento del rendimiento proporcional al ancho del vector:
 $8\times$ con AVX2 respecto al c\'omputo escalar.
@@ -126,6 +149,34 @@ Ofrece dos tipos principales de an\'alisis:
     datos transferidos desde/hacia memoria, calculando as\'i la
     intensidad aritm\'etica medida del programa.
 \end{itemize}
+
+La fase \textbf{Tripcounts + FLOP} cuantifica la carga real de
+trabajo del programa completo.
+Advisor instrumenta cada bucle del Survey e intercala contadores
+que registran, durante la ejecuci\'on: el n\'umero real de
+iteraciones (\textit{trip count}), las FLOPs ejecutadas
+---distinguiendo entre operaciones SIMD empaquetadas y escalares---
+y el volumen de datos transferidos desde cada nivel de la jerarqu\'ia
+de memoria (L1, L2, L3, DRAM).
+A partir de estos contadores se calcula la \textbf{intensidad
+aritm\'etica medida} del programa seg\'un la ec.~\ref{eq:ai_medida}:
+
+\begin{equation}
+  \mathcal{I}_{\text{medida}} =
+  \frac{\text{FLOPs totales}}{\text{Bytes transferidos a/desde memoria}}
+  \label{eq:ai_medida}
+\end{equation}
+
+Este valor es un promedio del \emph{programa completo}, no del
+kernel aislado.
+Las operaciones de I/O de imagen PGM, c\'alculo de gradientes
+Prewitt, replicaci\'on de datos y escritura del resultado
+aportan menor densidad aritm\'etica que el kernel de magnitud,
+diluyendo $\mathcal{I}_{\text{medida}}$ notablemente por debajo
+del valor te\'orico del kernel puro.
+Esta discrepancia es un resultado esperado que el modelo Roofline
+permite diagnosticar al comparar el punto de operaci\'on medido
+con los techos te\'oricos del hardware.
 
 El \textbf{modelo Roofline}~\cite{williams2009} es un marco
 visual para analizar el rendimiento de un kernel en funci\'on

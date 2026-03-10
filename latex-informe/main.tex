@@ -7,8 +7,10 @@
 \documentclass[twocolumn,twoside]{Jornadas}
 
 % ---- Codificacion y lenguaje ----
+\usepackage{cmap}             % ToUnicode CMap: extraccion correcta de texto en PDF
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{lmodern}          % Fuentes Latin Modern (mapeo Unicode correcto)
 \usepackage[spanish,es-nodecimaldot]{babel}
 
 % ---- Matematicas ----
@@ -77,6 +79,20 @@
 % ---- Ruta de figuras ----
 \graphicspath{{./Figuras/}}
 
+% ---- Correccion de mathcodes para Jornadas.cls (rawfonts + oldlfont) ----
+% rawfonts.sty redefine digitos como clase 7 (familia variable).
+% oldlfont.sty redefine \cal dejando \mathgroup=2 (OMS/lmsy) activo para
+% el resto del grupo matematico. Resultado: digitos Y letras con clase 7
+% usan lmsy10 donde pos. 0x30='prime', 0x33='ni', 0x6B='||' etc.
+% Fix 1: forzar clase 0 en digitos (familia fija 0 = OT1/lmr).
+\mathcode`\0="0030  \mathcode`\1="0031  \mathcode`\2="0032  \mathcode`\3="0033
+\mathcode`\4="0034  \mathcode`\5="0035  \mathcode`\6="0036  \mathcode`\7="0037
+\mathcode`\8="0038  \mathcode`\9="0039
+% Fix 2: \mathcal de oldlfont deja \fam=2 activo sin restaurar.
+% Se redefine para acotar el cambio de familia a un subgrupo local.
+\let\origmathcal\mathcal
+\renewcommand{\mathcal}[1]{{\origmathcal{#1}}}
+
 % ---- Separacion de silabas en espanol ----
 \hyphenation{vec-to-ri-za-cion ren-di-mien-to pro-ce-sa-mien-to
              in-tri-se-cos in-ten-si-dad a-rit-me-ti-ca
@@ -93,7 +109,8 @@
   Alfonso P\'erez Garc\'ia%
   \thanks{Maestr\'ia en Sistemas Distribuidos,
           Benem\'erita Universidad Aut\'onoma de Puebla (BUAP),
-          Puebla, Pue., M\'exico.}
+          Puebla, Pue., M\'exico.
+          Correo: \texttt{alfonso.089911@gmail.com}}
 }
 
 % =========================================================

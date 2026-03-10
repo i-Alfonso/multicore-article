@@ -285,13 +285,19 @@ El panel Code Analytics de Intel Advisor identifica las funciones
 que mayor tiempo de c\'omputo consumen dentro de los bucles
 vectorizados.
 En las cuatro versiones, la funci\'on m\'as activa reportada es
-\texttt{\_\_intel\_avx\_rep\_memset}, que es la rutina interna
-del compilador para inicializaci\'on de memoria usando
-instrucciones AVX.
-Esto confirma que la mayor parte del tiempo vectorizado
-corresponde a transferencias de datos en memoria y no a
-operaciones aritm\'eticas, consistente con el car\'acter
-\textit{memory-bound} revelado por el Roofline.
+\texttt{\_\_intel\_avx\_rep\_memset}, la rutina interna del
+compilador para inicializaci\'on de memoria con instrucciones AVX.
+Esto confirma que la mayor parte del tiempo vectorizado corresponde
+a transferencias de datos y no a c\'omputo aritm\'etico,
+consistente con el car\'acter \textit{memory-bound} del kernel.
+Cabe destacar que las versiones Guiada y Expl\'icita producen
+perfiles de Code Analytics visualmente id\'enticos: ambas son
+kernels AVX2 \textit{memory-bound} que invocan la misma rutina
+de transferencia, por lo que el \textit{bottleneck} es el mismo
+independientemente del ancho vectorial (8 vs.\ 32~floats efectivos).
+La diferencia entre ambas versiones se aprecia en el Survey
+(trip count $6{,}553{,}600$ vs.\ $1{,}638{,}400$) y en los
+GFLOPS ($5.97$ vs.\ $7.15$~GFLOPS).
 
 \begin{figure}[htb]
 \begin{center}
